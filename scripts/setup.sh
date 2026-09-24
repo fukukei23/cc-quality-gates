@@ -5,7 +5,15 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 KIT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-read -rp "gitleaks のパス [$HOME/bin/gitleaks]: " GL; GL=${GL:-$HOME/bin/gitleaks}
+# 非対話モード: GATE_NONINTERACTIVE=1 で環境変数値を使用（CI・自動テスト向け）
+#   GATE_GITLEAKS / GATE_BLOCK_LOG / GATE_WARN_LOG / GATE_WARN_PATTERNS
+if [ -n "${GATE_NONINTERACTIVE:-}" ]; then
+    GL=${GATE_GITLEAKS:-$HOME/bin/gitleaks}
+    LOG=${GATE_BLOCK_LOG:-$HOME/.claude/state/cc-gate-block.log}
+    WLOG=${GATE_WARN_LOG:-$HOME/.claude/state/cc-gate-warn.log}
+    WPF=${GATE_WARN_PATTERNS:-$HOME/.claude/state/cc-gate-warn-patterns}
+else
+    read -rp "gitleaks のパス [$HOME/bin/gitleaks]: " GL; GL=${GL:-$HOME/bin/gitleaks}
 if [ ! -x "$GL" ]; then
     echo "警告: $GL が実行可能ではありません。gitleaks を導入してください（https://github.com/gitleaks/gitleaks）"
     echo "  例: curl -sSL https://github.com/gitleaks/gitleaks/releases/download/v8.24.3/gitleaks_8.24.3_linux_x64.tar.gz | tar xz -C ~/bin gitleaks"
@@ -16,6 +24,7 @@ read -rp "warnログの保存先 [$HOME/.claude/state/cc-gate-warn.log]: " WLOG
 WLOG=${WLOG:-$HOME/.claude/state/cc-gate-warn.log}
 read -rp "warnパターン設定ファイル [$HOME/.claude/state/cc-gate-warn-patterns]: " WPF
 WPF=${WPF:-$HOME/.claude/state/cc-gate-warn-patterns}
+fi
 
 if [ ! -f "$WPF" ]; then
     mkdir -p "$(dirname "$WPF")"
