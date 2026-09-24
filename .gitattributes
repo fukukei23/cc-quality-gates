@@ -1,0 +1,3 @@
+# bashスクリプトとhookはLF固定（WindowsのautocrlfでCRLF化されるとbashが壊れる）
+*.sh text eol=lf
+hooks/pre-push.template text eol=lf
