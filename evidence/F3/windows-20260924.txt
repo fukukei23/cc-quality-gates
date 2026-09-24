@@ -1,0 +1,25 @@
+=== 環境2: Windows 11 PowerShell + Git Bash (Git for Windows 2.54.0.windows.1) ===
+=== 実行日時: 2026-09-24 12:1x JST / 実行者: ふくけい（実機） ===
+=== キット版: f1f8430（github.com/fukukei23/cc-quality-gates から clone） ===
+=== 導入: GATE_NONINTERACTIVE=1 GATE_GITLEAKS=~/bin/gitleaks.exe bash scripts/setup.sh ===
+
+warnパターン設定ファイルを作成しました: /c/Users/yn441/.claude/state/cc-gate-warn-patterns（自分固有の語を追記してください）
+setup完了: pre-pushゲートを有効化しました（無効化: git config --unset core.hooksPath）
+次に bash scripts/selftest.sh で導入を確認してください
+PASS: gitleaks実行可能 (/c/Users/yn441/bin/gitleaks.exe)
+PASS: pre-push設置+実行ビット
+warning: in the working copy of 'gate-selftest-dummy.txt', LF will be replaced by CRLF the next time Git touches it
+PASS: hook実発火（blockログ増加: 0→1）
+PASS: CI側ゲート存在（hook迂回の最終防衛）
+warning: in the working copy of '.gitleaks.toml', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'gate-selftest-bypass.txt', LF will be replaced by CRLF the next time Git touches it
+PASS: 設定バイパス耐性（gitleaks層無効化でもblock: 1→2）
+result: PASS=5 FAIL=0
+
+=== 補記（CC） ===
+- 初回実行（修正版v1）は setup.sh 対話入力が機能せず未設置で PASS=1 FAIL=4 →
+  キット側修正（非対話モード+.exe解決+identity fallback）後に本実行で PASS=5
+- LF→CRLF warningは autocrlf によるテスト用ダミーファイルへの正常な警告（selftest動作に影響なし）
+- F3完了条件（spec §5）: 2環境（うち1つWindows系）selftest合格 ✅ / キット全体 gitleaks 0件 ✅ /
+  diff手順ログ添付 ✅（docs/port-diff-pre-push.txt・個人語マスク）/ キットCI導入（permissions read-only）✅ /
+  selftestに .gitleaks.toml バイパス確認を含む ✅（層5・実bypass経路1件を既知限界として自己申告）
