@@ -1,0 +1,73 @@
+#!/bin/bash
+# pre-push — 二層消毒ゲート block層
+# 単純リスト/正規表現のみを判定する。文脈判定はここに書かない。
+# 評価順序: block層を先に全差分へ適用・warn層は記録のみで検査を免除しない。
+# このファイルはテンプレート。scripts/setup.sh がプレースホルダを置換して
+# .githooks/pre-push を生成する（直接編集しない）。
+set -uo pipefail
+GITLEAKS="__GITLEAKS_PATH__"
+BLOCK_LOG="__BLOCK_LOG__"
+WARN_LOG="__WARN_LOG__"
+# warn層のパターンは個人環境ごとに外部ファイルで指定（1行1パターン・#始まりはコメント）
+# 例: 自分のユーザー名・プライベートリポジトリ名・非公開フォルダ名など
+WARN_PATTERNS_FILE="__WARN_PATTERNS_FILE__"
+REPO="$(git rev-parse --show-toplevel)"
+RC=0
+
+log_line() { # $1=file $2=reason $3=detail(値を含まない)
+    mkdir -p "$(dirname "$1")"
+    printf '%s\t%s\t%s\n' "$(date -Is)" "$2" "$3" >> "$1"
+}
+
+# stdin: <local ref> <local oid> <remote ref> <remote oid>
+while read -r lref lsha rref rsha; do
+    [ "$lsha" = "0000000000000000000000000000000000000000" ] && continue  # 削除push
+    if [ "$rsha" = "0000000000000000000000000000000000000000" ]; then
+        # 新規ブランチ: デフォルトブランチとのmerge-base以降のみ
+        # （履歴全体をscanすると既知ダミーで必ず誤blockする実測があるため）
+        BASE=$(git merge-base origin/main "$lsha" 2>/dev/null || true)
+        if [ -n "$BASE" ] && [ "$BASE" != "$lsha" ]; then
+            RANGE="$BASE..$lsha"
+        else
+            RANGE=""   # merge-base不能=層2のみで判定
+        fi
+    else
+        RANGE="$rsha..$lsha"   # 通常push=push範囲の全コミットdiff（マージ含む）
+    fi
+
+    # --- block層1: gitleaks（push範囲の全コミット） ---
+    if [ -n "$RANGE" ] && [ -x "$GITLEAKS" ]; then
+        if ! "$GITLEAKS" detect --source "$REPO" --log-opts="$RANGE" --redact >/dev/null 2>&1; then
+            echo "BLOCK: gitleaks が push範囲($RANGE)で機密を検知（詳細はローカルで: $GITLEAKS detect --log-opts='$RANGE' --redact）"
+            log_line "$BLOCK_LOG" "gitleaks" "$RANGE"
+            RC=1
+        fi
+    elif [ ! -x "$GITLEAKS" ]; then
+        echo "WARN: gitleaks未検出($GITLEAKS) — 単純パターン走査のみで判定・block.logに記録"
+        log_line "$BLOCK_LOG" "gitleaks-missing" "${RANGE:-new-branch-no-base}"
+    fi
+
+    # --- block層2: 単純パターン（追加行のみ・代入形16字以上） ---
+    if [ -n "$RANGE" ]; then
+        ADDED=$(git diff "$RANGE" --unified=0 2>/dev/null | grep '^+' | grep -v '^+++' || true)
+    else
+        ADDED=$(git show "$lsha" --unified=0 2>/dev/null | grep '^+' | grep -v '^+++' || true)
+    fi
+    if echo "$ADDED" | grep -qEi '(password|token|secret|api[_-]?key)[[:space:]]*[=:][[:space:]]*["'"'"']?[A-Za-z0-9/+_-]{16,}'; then
+        echo "BLOCK: 単純パターン代入形に一致する追加行があります（意図的な値なら除去を検討・テスト用ダミーは形式を変更）"
+        log_line "$BLOCK_LOG" "pattern" "$RANGE"
+        RC=1
+    fi
+
+    # --- warn層: block通過後のみ・カウントのみ記録（値は残さない・PII蓄積回避） ---
+    if [ "$RC" -eq 0 ] && [ -f "$WARN_PATTERNS_FILE" ]; then
+        while IFS= read -r pat; do
+            [ -z "$pat" ] && continue
+            case "$pat" in \#*) continue ;; esac
+            if echo "$ADDED" | grep -qF "$pat"; then
+                log_line "$WARN_LOG" "warn-count" "$pat"
+            fi
+        done < "$WARN_PATTERNS_FILE"
+    fi
+done
+exit $RC

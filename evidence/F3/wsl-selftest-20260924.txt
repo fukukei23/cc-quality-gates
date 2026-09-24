@@ -1,0 +1,14 @@
+=== 環境1: WSL2 Ubuntu (gitleaks 8.24.3) ===
+=== 実行日時: 2026-09-24T10:15:44+09:00 ===
+
+--- clone + setup.sh（デフォルト値） ---
+SETUP_EXIT=0（対話入力をパイプ投入）
+
+--- selftest.sh 実行結果 ---
+PASS: gitleaks実行可能 (/home/yn4416/bin/gitleaks)
+PASS: pre-push設置+実行ビット
+PASS: hook実発火（blockログ増加: 10→11）
+PASS: CI側ゲート存在（hook迂回の最終防衛）
+PASS: 設定バイパス耐性（gitleaks層無効化でもblock: 11→12）
+result: PASS=5 FAIL=0
+SELFTEST_EXIT=0

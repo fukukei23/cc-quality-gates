@@ -1,0 +1,16 @@
+{
+  "date": "2026-09-10",
+  "what": "F0 (history scan + internal inventory) public summary — counts/hashes only, no secret content",
+  "repo_scanned": "claude-config (1182 commits, ~24.3MB)",
+  "gitleaks_findings": 17,
+  "gitleaks_reflog_findings": 17,
+  "rg_sweep_hits": 5,
+  "real_secrets_found": 0,
+  "rotation_required": false,
+  "findings_breakdown": "all test fixtures / doc examples / example files / PostHog publishable key",
+  "report_hashes": {
+    "f0-classification.json": "c2537565e6cd07fc",
+    "f0-inventory.txt": "73c22e65b8fbaf23"
+  },
+  "note": "hashはコミット時点の値・classification更新時は要再計算（2026-09-10自己点検でドリフト1件実錯出・修正）"
+}

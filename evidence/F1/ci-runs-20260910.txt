@@ -1,0 +1,5 @@
+completed	failure	test: gate E2E mock secret v2	leaks-gate	test/security-gate2	push	34485747345	15s	2026-09-10T13:55:56Z
+completed	success	test: gate E2E mock secret	leaks-gate	test/security-gate	push	34485447083	12s	2026-09-10T13:53:08Z
+completed	success	security(f1): hook新規ブランチrange修正(履歴全体誤爆バグ・merge-base化)+CI単純パターンstep追加(…	leaks-gate	main	push	34485420988	16s	2026-09-10T13:52:52Z
+completed	success	test: gate E2E mock secret	leaks-gate	test/security-gate	push	34484894064	15s	2026-09-10T13:47:51Z
+completed	success	security(f1): 二層消毒ゲート導入(pre-push block層+warn記録・leaks-gate CI全ブランチ+週次)	leaks-gate	main	push	34484692725	11s	2026-09-10T13:45:57Z

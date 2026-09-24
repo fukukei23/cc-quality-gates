@@ -1,0 +1,54 @@
+--- <home>/projects/claude-config/.githooks/pre-push	2026-09-10 22:53:03.397255879 +0900
++++ hooks/pre-push.template	2026-09-24 10:10:00.358834660 +0900
+@@ -1,11 +1,16 @@
+ #!/bin/bash
+-# pre-push — 二層消毒ゲート block層（spec §4.3・<private-repo> <internal-spec>）
+-# 単純リスト/正規表現のみを判定する。文脈判定はここに書かない（§4.3実装境界）。
+-# 評価順序（f0-classification.json evaluation_order）: block層を先に全差分へ適用・warn層は記録のみで検査を免除しない。
++# pre-push — 二層消毒ゲート block層
++# 単純リスト/正規表現のみを判定する。文脈判定はここに書かない。
++# 評価順序: block層を先に全差分へ適用・warn層は記録のみで検査を免除しない。
++# このファイルはテンプレート。scripts/setup.sh がプレースホルダを置換して
++# .githooks/pre-push を生成する（直接編集しない）。
+ set -uo pipefail
+-GITLEAKS="$HOME/bin/gitleaks"
+-BLOCK_LOG="$HOME/.claude/state/cc-gate-block.log"
+-WARN_LOG="$HOME/.claude/state/cc-gate-warn.log"
++GITLEAKS="__GITLEAKS_PATH__"
++BLOCK_LOG="__BLOCK_LOG__"
++WARN_LOG="__WARN_LOG__"
++# warn層のパターンは個人環境ごとに外部ファイルで指定（1行1パターン・#始まりはコメント）
++# 例: 自分のユーザー名・プライベートリポジトリ名・非公開フォルダ名など
++WARN_PATTERNS_FILE="__WARN_PATTERNS_FILE__"
+ REPO="$(git rev-parse --show-toplevel)"
+ RC=0
+ 
+@@ -18,8 +23,8 @@
+ while read -r lref lsha rref rsha; do
+     [ "$lsha" = "0000000000000000000000000000000000000000" ] && continue  # 削除push
+     if [ "$rsha" = "0000000000000000000000000000000000000000" ]; then
+-        # 新規ブランチ: デフォルトブランチとのmerge-base以降のみ（履歴全体を scan すると
+-        # 既知ダミー17件で必ず誤blockする実測があるため・2026-09-10 F1 E2Eで発見）
++        # 新規ブランチ: デフォルトブランチとのmerge-base以降のみ
++        # （履歴全体をscanすると既知ダミーで必ず誤blockする実測があるため）
+         BASE=$(git merge-base origin/main "$lsha" 2>/dev/null || true)
+         if [ -n "$BASE" ] && [ "$BASE" != "$lsha" ]; then
+             RANGE="$BASE..$lsha"
+@@ -55,12 +60,14 @@
+     fi
+ 
+     # --- warn層: block通過後のみ・カウントのみ記録（値は残さない・PII蓄積回避） ---
+-    if [ "$RC" -eq 0 ]; then
+-        for pat in '<username>' '<home>/' '<private-repo>' '<private-dir>' '<private-dir>'; do
++    if [ "$RC" -eq 0 ] && [ -f "$WARN_PATTERNS_FILE" ]; then
++        while IFS= read -r pat; do
++            [ -z "$pat" ] && continue
++            case "$pat" in \#*) continue ;; esac
+             if echo "$ADDED" | grep -qF "$pat"; then
+                 log_line "$WARN_LOG" "warn-count" "$pat"
+             fi
+-        done
++        done < "$WARN_PATTERNS_FILE"
+     fi
+ done
+ exit $RC

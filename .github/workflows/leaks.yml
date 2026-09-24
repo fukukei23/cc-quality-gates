@@ -1,0 +1,39 @@
+name: leaks-gate
+on:
+  push:
+  schedule:
+    - cron: '23 3 * * 1'  # 週次月曜（:00/:30回避・full history走査が裏取り）
+permissions:
+  contents: read
+jobs:
+  gitleaks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: gitleaks（公式action・機密形式）
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: 単純パターン走査（pre-push層2と同一基準・keyword代入形）
+        if: github.event_name == 'push'
+        run: |
+          BEFORE="${{ github.event.before }}"
+          AFTER="${{ github.event.after }}"
+          if [ "$BEFORE" = "0000000000000000000000000000000000000000" ] || [ -z "$BEFORE" ]; then
+            BASE=$(git merge-base origin/main "$AFTER" 2>/dev/null || echo "$AFTER")
+            RANGE="$BASE..$AFTER"
+          else
+            RANGE="$BEFORE..$AFTER"
+          fi
+          echo "scan range: $RANGE"
+          ADDED=$(git diff "$RANGE" --unified=0 2>/dev/null | grep '^+' | grep -v '^+++' || true)
+          if echo "$ADDED" | grep -qEi '(password|token|secret|api[_-]?key)[[:space:]]*[=:][[:space:]]*["'"'"']?[A-Za-z0-9/+_-]{16,}'; then
+            echo "BLOCK: keyword代入形に一致する追加行あり（詳細はローカル確認）"
+            exit 1
+          fi
+          echo "pattern scan: clean"
+      - name: 検知時も詳細を公開ログに出さない
+        if: failure()
+        run: echo "leaks detected（詳細はローカルで確認）"
