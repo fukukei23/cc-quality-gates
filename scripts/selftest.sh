@@ -11,8 +11,8 @@ HOOK="$(git rev-parse --show-toplevel)/.githooks/pre-push"
 strip_q() { sed -e 's/^"//' -e 's/"$//'; }
 GL="$(grep -m1 '^GITLEAKS=' "$HOOK" 2>/dev/null | cut -d= -f2- | strip_q || true)"
 GL=${GL:-$HOME/bin/gitleaks}
-# Windows: 拡張子付きバイナリへの自動解決（gitleaks → gitleaks.exe）
-[ -x "$GL" ] || [ -x "$GL.exe" ] && GL="$GL.exe"
+# Windows: 拡張子付きバイナリへの自動解決（gitleaksが無くgitleaks.exeがあればそちらを使う）
+if [ ! -x "$GL" ] && [ -x "$GL.exe" ]; then GL="$GL.exe"; fi
 BLOCK_LOG="$(grep -m1 '^BLOCK_LOG=' "$HOOK" 2>/dev/null | cut -d= -f2- | strip_q || true)"
 BLOCK_LOG=${BLOCK_LOG:-$HOME/.claude/state/cc-gate-block.log}
 # blockログ未作成でも静かに0を返す（初回導入直後はファイルが無い）
